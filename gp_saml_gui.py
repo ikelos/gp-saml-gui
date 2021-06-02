@@ -2,14 +2,12 @@
 
 try:
     import gi
-
     gi.require_version('Gtk', '3.0')
     gi.require_version('WebKit2', '4.0')
     from gi.repository import Gtk, WebKit2, GLib
 except ImportError:
     try:
         import pgi as gi
-
         gi.require_version('Gtk', '3.0')
         gi.require_version('WebKit2', '4.0')
         from pgi.repository import Gtk, WebKit2, GLib
@@ -21,6 +19,7 @@ if gi is None:
 import argparse
 import ssl
 import tempfile
+
 import xml.etree.ElementTree as ET
 from binascii import a2b_base64, b2a_base64
 from operator import setitem
@@ -30,10 +29,8 @@ from sys import stderr, platform
 from urllib.parse import urlparse, urlencode
 
 import requests
-
-
 class SAMLLoginView:
-    def __init__(self, uri, html = None, verbose = False, cookies = None, verify = True):
+    def __init__(self, uri, html=None, verbose=False, cookies=None, verify=True):
         Gtk.init()
         window = Gtk.Window()
 
@@ -85,20 +82,20 @@ class SAMLLoginView:
         if h:
             ct, cl = h.get_content_type(), h.get_content_length()
             content_type, charset = ct[0], ct.params.get('charset')
-            content_details = '%d bytes of %s%s for ' % (cl, content_type, ('; charset=' + charset) if charset else '')
-        print('[RECEIVE] %sresource %s %s' % (content_details if h else '', m, uri), file = stderr)
+            content_details = '%d bytes of %s%s for ' % (cl, content_type, ('; charset='+charset) if charset else '')
+        print('[RECEIVE] %sresource %s %s' % (content_details if h else '', m, uri), file=stderr)
 
-    def log_resource_text(self, resource, result, content_type, charset = None, show_headers = None):
+    def log_resource_text(self, resource, result, content_type, charset=None, show_headers=None):
         data = resource.get_data_finish(result)
         content_details = '%d bytes of %s%s for ' % (
             len(data), content_type, ('; charset=' + charset) if charset else '')
-        print('[DATA   ] %sresource %s' % (content_details, resource.get_uri()), file = stderr)
+        print('[DATA   ] %sresource %s' % (content_details, resource.get_uri()), file=stderr)
         if show_headers:
-            for h, v in show_headers.items():
-                print('%s: %s' % (h, v), file = stderr)
-            print(file = stderr)
+            for h,v in show_headers.items():
+                print('%s: %s' % (h, v), file=stderr)
+            print(file=stderr)
         if charset or content_type.startswith('text/'):
-            print(data.decode(charset or 'utf-8'), file = stderr)
+            print(data.decode(charset or 'utf-8'), file=stderr)
 
     def get_saml_headers(self, webview, event):
         if event != WebKit2.LoadEvent.FINISHED:
@@ -109,7 +106,7 @@ class SAMLLoginView:
         rs = mr.get_response()
         h = rs.get_http_headers()
         if self.verbose:
-            print('[PAGE   ] Finished loading page %s' % uri, file = stderr)
+            print('[PAGE   ] Finished loading page %s' % uri, file=stderr)
         if not h:
             return
 
@@ -120,46 +117,45 @@ class SAMLLoginView:
         fd = {name: v for name, v in d.items() if
               name.startswith('saml-') or name in ('prelogin-cookie', 'portal-userauthcookie')}
         if fd and self.verbose:
-            print("[SAML   ] Got SAML result headers: %r" % fd, file = stderr)
+            print("[SAML   ] Got SAML result headers: %r" % fd, file=stderr)
             if self.verbose > 1:
                 # display everything we found
                 ct = h.get_content_type()
                 mr.get_data(None, self.log_resource_text, ct[0], ct.params.get('charset'), d)
 
         # check if we're done
-        self.saml_result.update(fd, server = urlparse(uri).netloc)
+        self.saml_result.update(fd, server=urlparse(uri).netloc)
         GLib.timeout_add(1000, self.check_done)
 
     def check_done(self):
         d = self.saml_result
         if 'saml-username' in d and ('prelogin-cookie' in d or 'portal-userauthcookie' in d):
             if self.verbose:
-                print("[SAML   ] Got all required SAML headers, done.", file = stderr)
+                print("[SAML   ] Got all required SAML headers, done.", file=stderr)
             self.success = True
             Gtk.main_quit()
 
-
 def parse_args(args = None):
-    pf2clientos = dict(linux = 'Linux', darwin = 'Mac', win32 = 'Windows', cygwin = 'Windows')
-    clientos2ocos = dict(Linux = 'linux-64', Mac = 'mac-intel', Windows = 'win')
+    pf2clientos = dict(linux='Linux', darwin='Mac', win32='Windows', cygwin='Windows')
+    clientos2ocos = dict(Linux='linux-64', Mac='mac-intel', Windows='win')
     default_clientos = pf2clientos.get(platform, 'Windows')
 
     p = argparse.ArgumentParser()
-    p.add_argument('server', help = 'GlobalProtect server (portal or gateway)')
+    p.add_argument('server', help='GlobalProtect server (portal or gateway)')
     p.add_argument('--no-verify', dest = 'verify', action = 'store_false', default = True,
                    help = 'Ignore invalid server certificate')
     x = p.add_mutually_exclusive_group()
-    x.add_argument('-C', '--cookies', default = '~/.gp-saml-gui-cookies',
-                   help = 'Use and store cookies in this file (instead of default %(default)s)')
-    x.add_argument('-K', '--no-cookies', dest = 'cookies', action = 'store_const', const = None,
-                   help = "Don't use or store cookies at all")
+    x.add_argument('-C', '--cookies', default='~/.gp-saml-gui-cookies',
+                   help='Use and store cookies in this file (instead of default %(default)s)')
+    x.add_argument('-K', '--no-cookies', dest='cookies', action='store_const', const=None,
+                   help="Don't use or store cookies at all")
     x = p.add_mutually_exclusive_group()
-    x.add_argument('-g', '--gateway', dest = 'interface', action = 'store_const', const = 'gateway', default = 'portal',
-                   help = 'SAML auth to gateway')
-    x.add_argument('-p', '--portal', dest = 'interface', action = 'store_const', const = 'portal',
-                   help = 'SAML auth to portal (default)')
+    x.add_argument('-g','--gateway', dest='interface', action='store_const', const='gateway', default='portal',
+                   help='SAML auth to gateway')
+    x.add_argument('-p','--portal', dest='interface', action='store_const', const='portal',
+                   help='SAML auth to portal (default)')
     g = p.add_argument_group('Client certificate')
-    g.add_argument('-c', '--cert', help = 'PEM file containing client certificate (and optionally private key)')
+    g.add_argument('-c','--cert', help='PEM file containing client certificate (and optionally private key)')
     g.add_argument('--key',
                    help = 'PEM file containing client private key (if not included in same file as certificate)')
     g = p.add_argument_group('Debugging and advanced options')
@@ -169,7 +165,7 @@ def parse_args(args = None):
     x.add_argument('-q', '--quiet', dest = 'verbose', action = 'store_const', const = 0,
                    help = 'Reduce verbosity to a minimum')
     x = p.add_mutually_exclusive_group()
-    x.add_argument('-x', '--external', action = 'store_true', help = 'Launch external browser (for debugging)')
+    x.add_argument('-x','--external', action='store_true', help='Launch external browser (for debugging)')
     x.add_argument('-P', '--pkexec-openconnect', action = 'store_const', dest = 'exec', const = 'pkexec',
                    help = 'Use PolicyKit to exec openconnect')
     x.add_argument('-S', '--sudo-openconnect', action = 'store_const', dest = 'exec', const = 'sudo',
@@ -178,8 +174,8 @@ def parse_args(args = None):
                    help = 'Treat server as the complete URI of the SAML entry point, rather than GlobalProtect server')
     g.add_argument('--clientos', choices = set(pf2clientos.values()), default = default_clientos,
                    help = "clientos value to send (default is %(default)s)")
-    p.add_argument('-f', '--field', dest = 'extra', action = 'append', default = [],
-                   help = 'Extra form field(s) to pass to include in the login query string (e.g. "-f magic-cookie-value=deadbeef01234567")')
+    p.add_argument('-f','--field', dest='extra', action='append', default=[],
+                   help='Extra form field(s) to pass to include in the login query string (e.g. "-f magic-cookie-value=deadbeef01234567")')
     p.add_argument('openconnect_extra', nargs = '*',
                    help = "Extra arguments to include in output OpenConnect command-line")
     args = p.parse_args(args)
@@ -201,7 +197,6 @@ def parse_args(args = None):
 
     return p, args
 
-
 def main(args = None):
     p, args = parse_args(args)
 
@@ -209,8 +204,8 @@ def main(args = None):
     s.headers['User-Agent'] = 'PAN GlobalProtect'
     s.cert = args.cert
 
-    if2prelogin = {'portal': 'global-protect/prelogin.esp', 'gateway': 'ssl-vpn/prelogin.esp'}
-    if2auth = {'portal': 'global-protect/getconfig.esp', 'gateway': 'ssl-vpn/login.esp'}
+    if2prelogin = {'portal':'global-protect/prelogin.esp','gateway':'ssl-vpn/prelogin.esp'}
+    if2auth = {'portal':'global-protect/getconfig.esp','gateway':'ssl-vpn/login.esp'}
 
     # query prelogin.esp and parse SAML bits
     if args.uri:
@@ -220,9 +215,9 @@ def main(args = None):
         data = {'tmp': 'tmp', 'kerberos-support': 'yes', 'ipv6-support': 'yes', 'clientVer': 4100,
                 'clientos': args.clientos, **args.extra}
         if args.verbose:
-            print("Looking for SAML auth tags in response to %s..." % endpoint, file = stderr)
+            print("Looking for SAML auth tags in response to %s..." % endpoint, file=stderr)
         try:
-            res = s.post(endpoint, verify = args.verify, data = data)
+            res = s.post(endpoint, verify=args.verify, data=data)
         except Exception as ex:
             rootex = ex
             while True:
@@ -248,7 +243,7 @@ def main(args = None):
             msg = xml.find('msg')
             if msg != None and msg.text == 'GlobalProtect {} does not exist'.format(args.interface):
                 p.error("{} interface does not exist; specify {} instead".format(
-                    args.interface.title(), '--portal' if args.interface == 'gateway' else '--gateway'))
+                    args.interface.title(), '--portal' if args.interface=='gateway' else '--gateway'))
             else:
                 p.error("Error in {} prelogin response: {}".format(args.interface, msg.text))
         sam = xml.find('saml-auth-method')
@@ -269,7 +264,7 @@ def main(args = None):
 
     # launch external browser for debugging
     if args.external:
-        print("Got SAML %s, opening external browser for debugging..." % sam, file = stderr)
+        print("Got SAML %s, opening external browser for debugging..." % sam, file=stderr)
         import webbrowser
         if html:
             uri = 'data:text/html;base64,' + b2a_base64(html.encode()).decode()
@@ -278,11 +273,11 @@ def main(args = None):
 
     # spawn WebKit view to do SAML interactive login
     if args.verbose:
-        print("Got SAML %s, opening browser..." % sam, file = stderr)
-    slv = SAMLLoginView(uri, html, verbose = args.verbose, cookies = args.cookies, verify = args.verify)
+        print("Got SAML %s, opening browser..." % sam, file=stderr)
+    slv = SAMLLoginView(uri, html, verbose=args.verbose, cookies=args.cookies, verify=args.verify)
     Gtk.main()
     if slv.closed:
-        print("Login window closed by user.", file = stderr)
+        print("Login window closed by user.", file=stderr)
         p.exit(1)
     if not slv.success:
         p.error('''Login window closed without producing SAML cookies.''')
@@ -291,7 +286,7 @@ def main(args = None):
     un = slv.saml_result.get('saml-username')
     server = slv.saml_result.get('server', args.server)
 
-    for cn, ifh in (('prelogin-cookie', 'gateway'), ('portal-userauthcookie', 'portal')):
+    for cn, ifh in (('prelogin-cookie','gateway'), ('portal-userauthcookie','portal')):
         cv = slv.saml_result.get(cn)
         if cv:
             break
@@ -300,15 +295,17 @@ def main(args = None):
         p.error("Didn't get an expected cookie. Something went wrong.")
 
     openconnect_args = [
-                           "--protocol=gp",
-                           "--user=" + un,
-                           "--os=" + args.ocos,
-                           "--usergroup=" + args.interface + ":" + cn,
-                           "--passwd-on-stdin",
-                           server
-                       ] + args.openconnect_extra
+        "--protocol=gp",
+        "--user="+un,
+        "--os="+args.ocos,
+        "--usergroup="+args.interface+":"+cn,
+        "--passwd-on-stdin",
+                           "" if not args.cert[0] else "--certificate=" + args.cert[0],
+                           "" if not args.cert[1] else "--sslkey=" + args.cert[1],
+        server
+                       ] + [f'--{extra}' for extra in args.openconnect_extra]
 
-    openconnect_command = '''    echo {} |\n        sudo openconnect {}'''.format(
+    openconnect_command = '''    echo {} |\n        openconnect {}'''.format(
         quote(cv), " ".join(map(quote, openconnect_args)))
 
     if args.verbose:
@@ -316,16 +313,16 @@ def main(args = None):
         if server != args.server and not args.uri:
             print('''IMPORTANT: During the SAML auth, you were redirected from {0} to {1}. This probably '''
                   '''means you should specify {1} as the server for final connection, but we're not 100% '''
-                  '''sure about this. You should probably try both.\n'''.format(args.server, server), file = stderr)
+                  '''sure about this. You should probably try both.\n'''.format(args.server, server), file=stderr)
         if ifh != args.interface and not args.uri:
             print('''IMPORTANT: We started with SAML auth to the {} interface, but received a cookie '''
                   '''that's often associated with the {} interface. You should probably try both.\n'''.format(
                 args.interface, ifh),
-                file = stderr)
-        print('''\nSAML response converted to OpenConnect command line invocation:\n''', file = stderr)
-        print(openconnect_command, file = stderr)
+                  file=stderr)
+        print('''\nSAML response converted to OpenConnect command line invocation:\n''', file=stderr)
+        print(openconnect_command, file=stderr)
 
-        print('''\nSAML response converted to test-globalprotect-login.py invocation:\n''', file = stderr)
+        print('''\nSAML response converted to test-globalprotect-login.py invocation:\n''', file=stderr)
         print(
             '''    test-globalprotect-login.py --user={} --clientos={} -p '' \\\n         https://{}/{} {}={}\n'''.format(
                 quote(un), quote(args.clientos), quote(server), quote(if2auth[args.interface]), quote(cn), quote(cv)),
@@ -352,7 +349,6 @@ def main(args = None):
             'USER': quote(un), 'COOKIE': quote(cv), 'OS': quote(args.ocos),
         }
         print('\n'.join('%s=%s' % pair for pair in varvals.items()))
-
 
 if __name__ == "__main__":
     main()
